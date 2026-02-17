@@ -12,6 +12,7 @@
 #ifdef _WIN32
 #include <windows.h> // SetConsoleOutputCP & SetConsoleCP for unicode on cmd.exe
 #endif
+#include <iostream>
 
 class Game
 {
@@ -36,6 +37,8 @@ public:
       std::make_unique<ScopedImGui>(window_.get(), renderer_.get(), font_size);
 
     input_buffer_[0] = '\0';
+
+    bTest_ = false;
   }
 
   void run()
@@ -105,6 +108,12 @@ private:
                                  ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
     send |= ImGui::Button("Send");
+    ImGui::SameLine();
+    ImGui::Checkbox("Test", &bTest_);
+    //std::cout << bTest_ << ' ' << std::to_string(bTest_) << std::endl;
+    const char* item[] = { "", "X", "O" };
+    static int item_current = 0;
+    ImGui::Combo("##ff", &item_current, item, 3);
 
     if (send && input_buffer_[0] != '\0')
     {
@@ -112,7 +121,7 @@ private:
       chat_history_.push_back("You: " + user_msg);
 
       // This call is SYNCHRONOUS - the UI will freeze until it returns!
-      std::string response = chat_client_.send_message(user_msg);
+      std::string response = chat_client_.send_message(user_msg + std::to_string(bTest_));
       chat_history_.push_back("Assistant: " + response);
 
       input_buffer_[0] = '\0';
@@ -138,6 +147,7 @@ private:
   ChatClient               chat_client_;
   std::vector<std::string> chat_history_;
   char                     input_buffer_[256];
+  bool                     bTest_;
 
   // Cycling background colour
   float bg_r_ = 0.1f;
