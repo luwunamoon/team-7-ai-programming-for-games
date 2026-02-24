@@ -11,8 +11,9 @@
 #include <vector>
 #ifdef _WIN32
 #include <windows.h> // SetConsoleOutputCP & SetConsoleCP for unicode on cmd.exe
-#endif
 #include <iostream>
+#include <future>     // std::async
+#endif
 
 class Game
 {
@@ -23,7 +24,8 @@ public:
       renderer_{SDL_CreateRenderer(window_.get(), nullptr), SDL_DestroyRenderer},
       imgui_ctx_{nullptr},
       chat_client_{"https://polaris.uws.ac.uk/api/chat/completions", "POLARIS_API_KEY",
-                   "gpt-oss:20b", "You are a helpful assistant."}
+                   "gpt-oss:20b", "We are playing tic tac toe."},
+      fh_{}
   {
     if (!window_ || !renderer_)
     {
@@ -111,7 +113,7 @@ private:
     ImGui::SameLine();
     ImGui::Checkbox("Test", &bTest_);
     //std::cout << bTest_ << ' ' << std::to_string(bTest_) << std::endl;
-    const char* item[] = { "", "X", "O" };
+    const char* item[] = { "", "1", "2" ,"3" ,"4" , "5" , "6", "7" , "8", "9"};
     static int item_current = 0;
     ImGui::Combo("##ff", &item_current, item, 3);
 
@@ -120,11 +122,23 @@ private:
       std::string user_msg = input_buffer_;
       chat_history_.push_back("You: " + user_msg);
 
-      // This call is SYNCHRONOUS - the UI will freeze until it returns!
-      std::string response = chat_client_.send_message(user_msg + std::to_string(bTest_));
-      chat_history_.push_back("Assistant: " + response);
+
+      fh_ = std::async(std::launch::async, &ChatClient::send_message, &chat_client_, std::ref(user_msg));
+
+      chat_history_.push_back("Thinking...");
 
       input_buffer_[0] = '\0';
+    }
+
+    if (fh_.valid() &&
+        fh_.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+    {
+        chat_history_.clear();
+
+        std::string response = fh_.get();
+       
+        chat_history_.push_back("Opponent: " + response);
+
     }
 
     ImGui::End();
@@ -148,6 +162,7 @@ private:
   std::vector<std::string> chat_history_;
   char                     input_buffer_[256];
   bool                     bTest_;
+  std::future<std::string> fh_;
 
   // Cycling background colour
   float bg_r_ = 0.1f;
